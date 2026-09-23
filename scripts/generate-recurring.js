@@ -1,0 +1,1 @@
+const {migrate}=require('../src/db');const {generateRecurring}=require('../src/services/recurring');migrate();console.log('Independent recurring pickups generated:',generateRecurring());

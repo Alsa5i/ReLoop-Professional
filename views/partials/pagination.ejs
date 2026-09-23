@@ -1,0 +1,1 @@
+<% if(pages&&(pages.prev||pages.next)){ %><nav class="pagination" aria-label="Table pages"><% if(pages.prev){ %><a class="btn secondary" href="<%= pages.prev %>">Previous</a><% } %><span>Page <%= pages.page %></span><% if(pages.next){ %><a class="btn secondary" href="<%= pages.next %>">Next</a><% } %></nav><% } %>
