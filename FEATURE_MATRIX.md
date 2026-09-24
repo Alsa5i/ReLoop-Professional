@@ -5,7 +5,7 @@ Legend: **Implemented** = present in code; **Prepared** = architecture/UI placeh
 | Area | Status | Notes |
 |---|---|---|
 | Centralized ReLoop platform | Implemented | No tenant/subscription SaaS model |
-| Owner / Super Admin | Implemented | Separate `/owner/login`; Owner-only controls |
+| Owner / Super Admin | Implemented | Shared `/login` with all roles; Owner-only controls and additional throttling |
 | Admin operations | Implemented | Operational access without Owner-only Admin/settings authority |
 | Customer workspace | Implemented | Own pickups/history/payments/ratings/support |
 | Collector mobile workspace | Implemented | Availability, jobs, statuses, proof, weights, earnings |
@@ -64,3 +64,12 @@ Legend: **Implemented** = present in code; **Prepared** = architecture/UI placeh
 | Remote/off-host backups | Prepared | Deployment responsibility |
 | Safe health endpoint | Implemented | No paths/secrets/credentials |
 | Multi-tenant SaaS | Not implemented by design | Violates ReLoop business principle |
+
+## Official Version 1.0.0 additions
+| Capability | Status | Notes |
+|---|---|---|
+| Install on Android | Code added; device verification pending | `/install`, manifest, browser install prompt/menu |
+| Install on iPhone | Code added; device verification pending | Apple touch icon, Share → Add to Home Screen instructions |
+| Offline safety | Tested in dependency-free SW harness | Public static-only cache, offline fallback, no private pages |
+| Password recovery | Implemented; SMTP/live HTTP testing pending | 30-minute single-use tokens, session revocation, email requires real relay |
+| All 5 role login | Preserved from v3.2; live runtime retest pending | Unified login and role dashboards |

@@ -13,10 +13,16 @@ for name in ('gross_minor','commission_minor','provider_fee_minor','collector_pa
 for statement in re.findall(r"db\.exec\('([^']+)'\)",s):
  try:con.executescript(statement)
  except sqlite3.Error: pass
-required={'users':['status','role'],'app_sessions':['sid','user_id','last_active','expires_at'], 'pickup_requests':['estimated_weight','collected_weight','verified_weight','recurring_schedule_id'],'payments':['gross_minor','commission_minor','provider_fee_minor'],'recurring_pickups':['next_date'],'recycling_campaigns':['target_kg'],'support_requests':['category','escalated']}
+con.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL')
+required={'users':['status','role','username'],'app_sessions':['sid','user_id','last_active','expires_at'], 'pickup_requests':['estimated_weight','collected_weight','verified_weight','recurring_schedule_id'],'payments':['gross_minor','commission_minor','provider_fee_minor'],'password_reset_tokens':['user_id','token_hash','expires_at','used_at'],'recurring_pickups':['next_date'],'recycling_campaigns':['target_kg'],'support_requests':['category','escalated']}
 for table,columns in required.items():
  present={r[1] for r in con.execute(f'PRAGMA table_info({table})')}; assert set(columns)<=present,(table,columns,present)
 con.execute("INSERT INTO users(name,email,password,role,status) VALUES('T','t@t.t','hash','customer','active')")
+con.execute("UPDATE users SET username='recycle101' WHERE id=1")
+try:
+ con.execute("INSERT INTO users(name,email,username,password,role,status) VALUES('T2','t2@t.t','recycle101','hash','customer','active')")
+ raise AssertionError('duplicate username was allowed')
+except sqlite3.IntegrityError: pass
 con.execute("INSERT INTO app_sessions(sid,sess,user_id,expires_at) VALUES('abc','{}',1,123456)")
 assert con.execute('SELECT user_id FROM app_sessions WHERE sid=?',('abc',)).fetchone()[0]==1
 print('PASS fresh SQLite DDL smoke; tables:',len(con.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()))

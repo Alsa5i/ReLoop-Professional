@@ -330,6 +330,16 @@ function migrate() {
       expires_at INTEGER NOT NULL,
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     );
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token_hash TEXT NOT NULL UNIQUE,
+      expires_at INTEGER NOT NULL,
+      used_at INTEGER,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_reset_user ON password_reset_tokens(user_id,expires_at);
+    CREATE INDEX IF NOT EXISTS idx_reset_expiry ON password_reset_tokens(expires_at);
     CREATE TABLE IF NOT EXISTS customer_businesses (
       customer_id INTEGER PRIMARY KEY REFERENCES users(id), business_name TEXT NOT NULL, contact_person TEXT,
       registration_info TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -378,11 +388,12 @@ function migrate() {
   addColumn('pickup_requests', "recurring_schedule_id INTEGER");
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_pickups_schedule_occurrence ON pickup_requests(recurring_schedule_id, preferred_time) WHERE recurring_schedule_id IS NOT NULL');
   addColumn('users', "phone TEXT");
+  addColumn('users', "username TEXT");
   addColumn('users', "status TEXT NOT NULL DEFAULT 'active'");
   addColumn('users', "verification_status TEXT NOT NULL DEFAULT 'unverified'");
   addColumn('users', "updated_at TEXT");
   db.prepare('UPDATE users SET updated_at=COALESCE(updated_at,created_at,CURRENT_TIMESTAMP)').run();
-  db.exec('CREATE INDEX IF NOT EXISTS idx_users_role_status ON users(role,status); CREATE INDEX IF NOT EXISTS idx_pickups_recurring ON pickup_requests(recurring_schedule_id,requested_at)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_users_role_status ON users(role,status); CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL; CREATE INDEX IF NOT EXISTS idx_pickups_recurring ON pickup_requests(recurring_schedule_id,requested_at)');
   // Historical REAL amounts remain for compatibility. New financial calculations use exact integer units.
   const scale=setting('payment_currency','UGX')==='UGX'?1:100;
   db.prepare(`UPDATE payments SET gross_minor=ROUND(gross_value*?),commission_minor=ROUND(reloop_commission*?),provider_fee_minor=ROUND(payment_provider_fee*?),collector_payout_minor=ROUND(collector_payout*?),partner_payout_minor=ROUND(partner_payout*?) WHERE gross_minor=0 AND gross_value>0`).run(scale,scale,scale,scale,scale);
@@ -442,16 +453,22 @@ function seedOwner(){
   const existingOwner=db.prepare("SELECT * FROM users WHERE role='owner' ORDER BY id LIMIT 1").get();
   const target=db.prepare('SELECT id,role FROM users WHERE email=?').get(config.ownerEmail);
   if(target && target.role!=='owner')throw Error('OWNER_EMAIL belongs to a non-Owner account; choose a different address.');
+  const seedFingerprint=crypto.createHmac('sha256',config.sessionSecret).update('owner-provision-v1:'+config.ownerPassword).digest('hex');
+  const priorFingerprint=setting('owner_provision_fingerprint','');
   if(existingOwner){
-    const changed=!bcrypt.compareSync(config.ownerPassword,existingOwner.password);
-    const hash=changed?bcrypt.hashSync(config.ownerPassword,12):existingOwner.password;
-    db.prepare("UPDATE users SET name=?,email=?,password=?,status='active',verification_status='verified',updated_at=CURRENT_TIMESTAMP WHERE id=?")
-      .run(config.ownerName,config.ownerEmail,hash,existingOwner.id);
-    if(changed)db.prepare('DELETE FROM app_sessions WHERE user_id=?').run(existingOwner.id);
+    const initialProvision=!priorFingerprint&&bcrypt.compareSync(config.ownerPassword,existingOwner.password);
+    const newProvision=!!priorFingerprint&&priorFingerprint!==seedFingerprint;
+    // Rotate only when OWNER_PASSWORD changes; an Owner's UI password must survive restarts.
+    const hash=newProvision?bcrypt.hashSync(config.ownerPassword,12):existingOwner.password;
+    db.prepare("UPDATE users SET email=?,password=?,status='active',verification_status='verified',updated_at=CURRENT_TIMESTAMP WHERE id=?")
+      .run(config.ownerEmail,hash,existingOwner.id);
+    if(newProvision)db.prepare('DELETE FROM app_sessions WHERE user_id=?').run(existingOwner.id);
+    if(newProvision||!priorFingerprint)db.prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run('owner_provision_fingerprint',seedFingerprint);
     db.prepare("UPDATE users SET role='admin',status='suspended' WHERE role='owner' AND id<>?").run(existingOwner.id);
   }else{
     db.prepare("INSERT INTO users(name,email,password,role,status,verification_status) VALUES(?,?,?,'owner','active','verified')")
       .run(config.ownerName,config.ownerEmail,bcrypt.hashSync(config.ownerPassword,12));
+    db.prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run('owner_provision_fingerprint',seedFingerprint);
   }
 }
 

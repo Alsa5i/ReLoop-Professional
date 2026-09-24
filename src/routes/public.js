@@ -1,6 +1,6 @@
 const express=require('express');
 const bcrypt=require('bcryptjs');
-const {finalizeLogin}=require('../security');
+const {finalizeLogin,authRateLimit}=require('../security');
 const {db,setting}=require('../db');
 const {audit}=require('../services/audit');
 const {notifyRole}=require('../services/notifications');
@@ -17,6 +17,7 @@ router.get('/',(req,res)=>{
   const announcements=db.prepare('SELECT * FROM announcements WHERE active=1 ORDER BY id DESC LIMIT 3').all();
   res.render('public/home',{categories,stats,announcements});
 });
+router.get('/install',(req,res)=>res.render('public/install'));
 router.get('/how-it-works',(req,res)=>res.render('public/how-it-works'));
 router.get('/materials',(req,res)=>res.render('public/materials',{categories:db.prepare('SELECT * FROM material_categories WHERE active=1 ORDER BY name').all()}));
 router.get('/partners',(req,res)=>res.render('public/partners',{partners:db.prepare(`SELECT u.name,p.business_name,p.location,p.profile_notes FROM partner_profiles p JOIN users u ON u.id=p.user_id WHERE p.verification_status='verified' AND u.status='active' ORDER BY p.business_name`).all()}));
@@ -49,37 +50,66 @@ router.get('/:policy(collection-terms|payment-terms|safety-guidelines|refund-pol
  const title=legal[req.params.policy];const entry=db.prepare('SELECT body FROM public_content WHERE content_key=? AND active=1').get(req.params.policy.replaceAll('-','_'));
  res.render('public/policy',{title,body:entry?.body||'Draft policy template. ReLoop must complete and obtain professional legal review before launch.'});
 });
-router.get('/recycle',(req,res)=>req.session.user?.role==='customer'?res.redirect('/customer/pickups/new'):res.redirect('/register?next=pickup'));
+router.get('/recycle',(req,res)=>req.session.user?.role==='customer'?res.redirect('/customer/pickups/new'):req.session.user?res.redirect('/'+req.session.user.role):res.redirect('/register?next=pickup'));
 router.get('/verify/:token',(req,res)=>{
   const pickup=db.prepare(`SELECT p.reference,p.status,p.verified_weight,p.verified_at,mc.name material_name FROM pickup_requests p LEFT JOIN material_categories mc ON mc.id=p.category_id WHERE p.qr_token=?`).get(req.params.token);
   if(!pickup) return res.status(404).render('common/error',{code:404,title:'Verification not found',message:'This verification token is invalid or expired.'});
   res.render('public/verify',{pickup});
 });
 
-router.get('/register',(req,res)=>res.render('auth/register',{error:null,next:req.query.next||''}));
-router.post('/register',async(req,res)=>{
-  const name=String(req.body.name||'').trim().slice(0,120),email=String(req.body.email||'').trim().toLowerCase().slice(0,200),phone=String(req.body.phone||'').trim().slice(0,40),password=String(req.body.password||'');
-  if(name.length<2||!email.includes('@')||password.length<10) return res.status(400).render('auth/register',{error:'Use a valid name/email and a password of at least 10 characters.',next:req.body.next||''});
-  if(db.prepare('SELECT id FROM users WHERE email=?').get(email)) return res.status(409).render('auth/register',{error:'An account with that email already exists.',next:req.body.next||''});
+// Customers, collectors, partners and business customers begin at one account-creation screen.
+const signupRoles=['customer','collector','partner','business'];
+const landing={customer:'/customer',collector:'/collector',partner:'/partner',business:'/customer/business'};
+function roleFrom(value){return signupRoles.includes(value)?value:'customer';}
+function signupPage(req,res,{error=null,duplicate=false,status=200}={}){
+  const role=roleFrom(req.body?.role||req.query.role);
+  return res.status(status).render('auth/register',{error,duplicate,role,next:req.body?.next==='pickup'||req.query.next==='pickup'?'pickup':'',formData:req.body||{}});
+}
+router.get('/register',(req,res)=>req.session.user?res.redirect('/'+req.session.user.role):signupPage(req,res));
+// Legacy application URLs remain functional but use the same unified signup view.
+router.get('/become-collector',(req,res)=>res.redirect(302,'/register?role=collector'));
+router.get('/become-partner',(req,res)=>res.redirect(302,'/register?role=partner'));
+function validEmail(email){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)&&email.length<=200;}
+async function createAccount(req,res){
+  const role=roleFrom(req.body.role),realRole=role==='business'?'customer':role;
+  const name=String(req.body.name||'').trim().slice(0,120),email=String(req.body.email||'').trim().toLowerCase(),phone=String(req.body.phone||'').trim().slice(0,40);
+  const password=String(req.body.password||''),area=String(req.body.area||'').trim().slice(0,160);
+  const business=String(req.body.business_name||'').trim().slice(0,180),vehicle=String(req.body.vehicle_type||'').trim().slice(0,100);
+  if(!signupRoles.includes(String(req.body.role||'customer')))return signupPage(req,res,{error:'Choose the account type you need.',status:400});
+  if(name.length<2||!validEmail(email))return signupPage(req,res,{error:'Enter your full name and a valid email address.',status:400});
+  if(password.length<12||password.length>200)return signupPage(req,res,{error:'Create a password between 12 and 200 characters.',status:400});
+  if(password!==String(req.body.password_confirmation||''))return signupPage(req,res,{error:'The passwords do not match. Please confirm your password.',status:400});
+  if((role==='business'||role==='partner')&&business.length<2)return signupPage(req,res,{error:'Enter your business or facility name.',status:400});
+  if(db.prepare('SELECT id FROM users WHERE email=?').get(email))return signupPage(req,res,{error:'An account already exists for this email. Sign in instead, or contact support if you cannot access it.',duplicate:true,status:409});
   const hash=await bcrypt.hash(password,12);
-  const info=db.prepare("INSERT INTO users(name,email,password,role,phone,status,verification_status) VALUES(?,?,?,'customer',?,'active','unverified')").run(name,email,hash,phone);
-  audit(req,'customer_registered','user',info.lastInsertRowid);
-  finalizeLogin(req,res,{id:Number(info.lastInsertRowid),name,email,role:'customer'},req.body.next==='pickup'?'/customer/pickups/new':'/customer');
-});
-router.get('/become-collector',(req,res)=>res.render('auth/apply',{role:'collector',error:null}));
-router.get('/become-partner',(req,res)=>res.render('auth/apply',{role:'partner',error:null}));
-router.post('/apply/:role',async(req,res)=>{
-  const role=req.params.role;
-  if(!['collector','partner'].includes(role)) return res.status(404).send('Not found');
-  const name=String(req.body.name||'').trim().slice(0,120),email=String(req.body.email||'').trim().toLowerCase().slice(0,200),phone=String(req.body.phone||'').trim().slice(0,40),password=String(req.body.password||''),area=String(req.body.area||'').trim().slice(0,160),business=String(req.body.business_name||'').trim().slice(0,180),vehicle=String(req.body.vehicle_type||'').trim().slice(0,100),idReference=String(req.body.id_reference||'').trim().slice(0,120),emergency=String(req.body.emergency_contact||'').trim().slice(0,120),registration=String(req.body.registration_info||'').trim().slice(0,300);
-  if(name.length<2||!email.includes('@')||password.length<10) return res.status(400).render('auth/apply',{role,error:'Use a valid name/email and a password of at least 10 characters.'});
-  if(db.prepare('SELECT id FROM users WHERE email=?').get(email)) return res.status(409).render('auth/apply',{role,error:'An account with that email already exists.'});
-  const hash=await bcrypt.hash(password,12);
-  const info=db.prepare('INSERT INTO users(name,email,password,role,phone,status,verification_status) VALUES(?,?,?,?,?,?,?)').run(name,email,hash,role,phone,'active','pending_verification');
-  const id=Number(info.lastInsertRowid);
-  if(role==='collector') db.prepare("INSERT INTO collector_profiles(user_id,phone,service_area,vehicle_type,id_reference,emergency_contact,verification_status,availability) VALUES(?,?,?,?,?,?,'pending_verification','offline')").run(id,phone,area,vehicle,idReference,emergency);
-  else db.prepare("INSERT INTO partner_profiles(user_id,business_name,contact_person,phone,location,registration_info,verification_status) VALUES(?,?,?,?,?,?,'pending')").run(id,business||name,name,phone,area,registration);
-  audit(req,`${role}_application_created`,'user',id);notifyRole('admin',`${role} verification pending`,`${name} submitted a ${role} application.`,'/admin/verifications');notifyRole('owner',`${role} verification pending`,`${name} submitted a ${role} application.`,'/admin/verifications');
-  res.render('auth/application-sent',{role});
+  let id;
+  try{
+    id=db.transaction(()=>{
+      const verification=realRole==='customer'?'unverified':'pending_verification';
+      const info=db.prepare('INSERT INTO users(name,email,password,role,phone,status,verification_status) VALUES(?,?,?,?,?,?,?)').run(name,email,hash,realRole,phone,'active',verification);
+      const userId=Number(info.lastInsertRowid);
+      if(realRole==='collector')db.prepare("INSERT INTO collector_profiles(user_id,phone,service_area,vehicle_type,verification_status,availability) VALUES(?,?,?,?,'pending_verification','offline')").run(userId,phone,area,vehicle);
+      if(realRole==='partner')db.prepare("INSERT INTO partner_profiles(user_id,business_name,contact_person,phone,location,verification_status) VALUES(?,?,?,?,?,'pending')").run(userId,business,name,phone,area);
+      if(role==='business')db.prepare('INSERT INTO customer_businesses(customer_id,business_name,contact_person) VALUES(?,?,?)').run(userId,business,name);
+      return userId;
+    })();
+  }catch(err){
+    if(/UNIQUE constraint failed: users.email/i.test(err.message))return signupPage(req,res,{error:'An account already exists for this email. Sign in instead.',duplicate:true,status:409});
+    throw err;
+  }
+  audit(req,realRole==='customer'?'CUSTOMER_REGISTERED':realRole.toUpperCase()+'_APPLICATION_CREATED','user',id);
+  if(['collector','partner'].includes(realRole)){
+    notifyRole('admin',realRole+' verification pending',name+' submitted an application.','/admin/verifications');
+    notifyRole('owner',realRole+' verification pending',name+' submitted an application.','/admin/verifications');
+  }
+  // An applicant can see the new account immediately; only privileged marketplace actions remain gated.
+  const next=role==='customer'&&req.body.next==='pickup'?'/customer/pickups/new':landing[role];
+  finalizeLogin(req,res,{id,name,email,role:realRole},next,realRole==='customer'?'Welcome to ReLoop! Your account is ready. Start with your first pickup or explore your workspace.':'Welcome to ReLoop! Your account is ready; ReLoop must verify your application before marketplace work begins.');
+}
+router.post('/register',authRateLimit,createAccount);
+router.post('/apply/:role',authRateLimit,(req,res)=>{
+  if(!['collector','partner'].includes(req.params.role))return res.sendStatus(404);
+  req.body.role=req.params.role;
+  return createAccount(req,res);
 });
 module.exports=router;

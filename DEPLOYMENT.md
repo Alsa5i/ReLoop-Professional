@@ -1,3 +1,5 @@
+Version 1.0.1: upgrade by backing up your existing `data.db`, extracting the new source separately, configuring the same persistent DATABASE_PATH and applying the automatic additive username migration on first startup. Verify the Owner can sign in with the password they last set. **Do not overwrite `.env` or your existing SQLite database with files from a ZIP.** PWA users should reload the site once online so the v1.0.1 static cache activates. Run `npm run test:release`.
+
 # ReLoop Production Deployment Guide
 
 ## Hosting requirements
@@ -20,9 +22,9 @@ Start from `.env.example`. At minimum configure:
 
 - `NODE_ENV=production`
 - `PORT`
-- `BASE_URL=https://your-domain.example`
+- `APP_BASE_URL=https://your-domain.example` (legacy `BASE_URL` also accepted)
 - `DATABASE_PATH=/persistent/path/reloop.sqlite`
-- `SESSION_SECRET` — strong random value, minimum 32 characters
+- `SESSION_SECRET` — strong random value, minimum 48 characters
 - `OWNER_NAME`
 - `OWNER_EMAIL`
 - `OWNER_PASSWORD` — strong unique password, minimum 14 characters in production
@@ -32,14 +34,12 @@ Production startup fails if the critical session/Owner secrets are missing, too 
 ## Installation
 
 ```bash
-npm ci
-npm run check
-npm run test:static
-npm run test:schema
+npm install
+npm run test:release
 NODE_ENV=production npm start
 ```
 
-If a lockfile is not yet generated in your build workflow, run `npm install` once in a controlled development/build environment and commit the generated lockfile after dependency review.
+The ZIP does not contain a verified npm lockfile because npm packages could not be fetched here. Run `npm install` in a controlled build environment, review the generated lockfile and commit it before public deployment. Afterwards use `npm ci` for reproducible builds.
 
 ## Reverse proxy / HTTPS
 
@@ -71,7 +71,7 @@ Do not enable a live payment claim until official merchant credentials, provider
 
 ## External integrations
 
-Email, SMS, WhatsApp, Maps and push credentials in `.env.example` are placeholders only. Connecting them requires provider-specific code, credentials and testing.
+SMTP recovery email is implemented but **disabled until you configure a real SMTP_HOST, SMTP_FROM and any required SMTP_USER/SMTP_PASSWORD**; set APP_BASE_URL to the public HTTPS origin and send a test email. SMS, WhatsApp, Maps and push remain unconnected and require provider-specific code, credentials and testing.
 
 ## Launch checklist
 
@@ -93,3 +93,11 @@ Set `DATABASE_PATH=/app/data/reloop.db` for a mounted persistent volume on a com
 ## Scheduled business pickups
 
 ReLoop generates due recurring pickups when the server starts and hourly while the server is running. For operational reliability, also arrange an appropriate controlled server cron job (`npm run pickups:generate`) in deployments that may sleep; generator advances each independent occurrence transactionally.
+
+## Installable phone app (PWA)
+
+After enabling HTTPS open `/install`; check the Android Chrome/Samsung Internet prompt or browser menu, and iPhone/iPad Share → Add to Home Screen. Confirm `/sw.js` and icons return 200 and no private page is cached. See `PWA_INSTALLATION.md`. No APK/IPA or app-store submission is included.
+
+## Password recovery testing
+
+With real SMTP credentials, request reset for a test Customer; verify delivery and expiry after 30 minutes; submit once and confirm password change. Reusing the link must fail, and active device sessions must be revoked. Owner password changes through OWNER_PASSWORD and requires a restart. Without configured SMTP, the page accurately directs visitors to Support.

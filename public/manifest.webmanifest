@@ -1,1 +1,22 @@
-{"name":"ReLoop Recycling","short_name":"ReLoop","start_url":"/","scope":"/","display":"standalone","background_color":"#f5f8f8","theme_color":"#0b625b","icons":[{"src":"/icons/reloop-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},{"src":"/icons/reloop-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]}
+{
+  "id": "/",
+  "name": "ReLoop — Recycling & Pickups",
+  "short_name": "ReLoop",
+  "description": "Request, collect and track recycling pickups through the ReLoop platform.",
+  "start_url": "/?source=installed",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#f5f8f8",
+  "theme_color": "#0b625b",
+  "lang": "en",
+  "categories": ["business", "productivity", "utilities"],
+  "icons": [
+    {"src":"/icons/reloop-192.png", "sizes":"192x192", "type":"image/png", "purpose":"any"},
+    {"src":"/icons/reloop-512.png", "sizes":"512x512", "type":"image/png", "purpose":"any"}
+  ],
+  "shortcuts": [
+    {"name":"Request a pickup", "short_name":"Pickup", "url":"/recycle"},
+    {"name":"Materials accepted", "short_name":"Materials", "url":"/materials"}
+  ]
+}

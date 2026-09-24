@@ -48,7 +48,8 @@ router.get('/users',(req,res)=>{
 router.get('/admins',(req,res)=>res.render('owner/admins',{rows:db.prepare("SELECT id,name,email,status,created_at FROM users WHERE role='admin' ORDER BY id DESC").all(),error:null}));
 router.post('/admins',async(req,res)=>{
   const name=String(req.body.name||'').trim().slice(0,120),email=String(req.body.email||'').trim().toLowerCase(),password=String(req.body.password||'');
-  if(name.length<2||!email.includes('@')||password.length<12) return res.status(400).render('owner/admins',{rows:db.prepare("SELECT id,name,email,status,created_at FROM users WHERE role='admin' ORDER BY id DESC").all(),error:'Admin password must be at least 12 characters.'});
+  if(name.length<2||!email.includes('@')||password.length<12) return res.status(400).render('owner/admins',{rows:db.prepare("SELECT id,name,email,status,created_at FROM users WHERE role='admin' ORDER BY id DESC").all(),error:'Enter the Admin name, a valid email, and a unique password of at least 12 characters.'});
+  if(password!==String(req.body.password_confirmation||''))return res.status(400).render('owner/admins',{rows:db.prepare("SELECT id,name,email,status,created_at FROM users WHERE role='admin' ORDER BY id DESC").all(),error:'The Admin passwords do not match.'});
   if(db.prepare('SELECT id FROM users WHERE email=?').get(email)) return res.status(409).render('owner/admins',{rows:db.prepare("SELECT id,name,email,status,created_at FROM users WHERE role='admin' ORDER BY id DESC").all(),error:'Email already exists.'});
   const hash=await bcrypt.hash(password,12); const info=db.prepare("INSERT INTO users(name,email,password,role,status,verification_status) VALUES(?,?,?,'admin','active','verified')").run(name,email,hash); audit(req,'admin_created','user',info.lastInsertRowid); res.redirect('/owner/admins');
 });

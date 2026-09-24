@@ -1,10 +1,36 @@
+## v1.0.1 browser drafts and passwords
+
+- No password/confirmation/CSRF/verification files or payment secrets are persisted in Web Storage by ReLoop.
+- Draft fields live in `sessionStorage` for the current tab and are scoped to the active account ID; they are cleared on sign-out. The login identifier is stored per tab by default and only in `localStorage` after explicitly selecting Remember my login.
+- Independent per-account bcrypt password hashes remain in SQLite. ReLoop does **not** compare users' passwords to force global uniqueness, which would weaken privacy; every account manages its own secret.
+- Owner credential provisioning fingerprint is used to distinguish an intentional environment-based password rotation from an Owner-initiated password change through the UI. A new environment password revokes Owner sessions.
+- Client validation/errors supplement, not replace, server-side authorization, CSRF, access checks and audit logging.
+
+## v1.0.1 browser drafts and passwords
+
+- No password/confirmation/CSRF/verification files or payment secrets are persisted in Web Storage by ReLoop.
+- Draft fields live in `sessionStorage` for the current tab and are scoped to the active account ID; they are cleared on sign-out. The login identifier is stored per tab by default and only in `localStorage` after explicitly selecting Remember my login.
+- Independent per-account bcrypt password hashes remain in SQLite. ReLoop does **not** compare users' passwords to force global uniqueness, which would weaken privacy; every account manages its own secret.
+- Owner credential provisioning fingerprint is used to distinguish an intentional environment-based password rotation from an Owner-initiated password change through the UI. A new environment password revokes Owner sessions.
+- Client validation/errors supplement, not replace, server-side authorization, CSRF, access checks and audit logging.
+
+## Version 1.0.1 — credentials and drafts
+
+Each user has their own bcrypt password, no shared production demo password. Names and unique usernames can be edited by all five roles. The Owner provision fingerprint prevents normal restarts from overwriting an in-app password change, but changing `OWNER_PASSWORD` in `.env` remains an explicit rotation mechanism. Non-secret form drafts are tab-scoped in sessionStorage; a login identifier may be saved in localStorage **only if opted in**. Passwords, CSRF, uploads and payment/verification secrets are excluded. Clearing site data removes drafts; this is convenience, not a substitute for server-side persistence.
+
+## Version 1.0.0 account recovery
+Reset tokens are generated with `crypto.randomBytes(32)` and only SHA-256 hashes are stored. Tokens expire after 30 minutes and are atomically marked used before updating bcrypt password hash. All user's `app_sessions` are revoked. Password reset requests disclose neither existing accounts nor Owner identity; Owner is excluded from public recovery and manages credentials in secure server environment. Real SMTP must be configured; no placeholder provider claims delivery.
+
+## Phone installation cache boundary
+The PWA only caches a static allowlist. Authenticated HTML, API JSON, private proof documents, payment pages and POSTs are never cached; no offline mutations queue. Service worker update is versioned and deployment should test static-cache invalidation.
+
 # ReLoop Security Notes — v3.0.0
 
 ## Authentication
 
 - Passwords are hashed with `bcryptjs`.
 - Public registration cannot create Owner or Admin accounts.
-- Owner uses a separate `/owner/login` entry and environment-provisioned credentials.
+- Owner signs in at the shared `/login` but remains protected by Owner-only permissions, five attempts per 15 minutes per IP/email combination, a two-session limit, audit logging and environment-provisioned credentials. The old `/owner/login` GET redirects to `/login`.
 - Login endpoints are throttled; Owner login has a stricter rate limit.
 - Production rejects missing/weak or known placeholder `SESSION_SECRET` values and weak/missing/placeholder Owner credentials.
 - Session cookies are `HttpOnly`, `SameSite=Lax`, and `Secure` in production.

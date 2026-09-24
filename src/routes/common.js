@@ -4,13 +4,24 @@ const {requireAuth,revokeOtherSessions}=require('../security');
 const bcrypt=require('bcryptjs');
 const {audit}=require('../services/audit');
 const router=express.Router();
+const profileAccount=(id)=>db.prepare('SELECT id,name,username,email,phone,role,status,verification_status,created_at FROM users WHERE id=?').get(id);
+function profileError(req,res,message,code=400){ return res.status(code).render('common/profile',{account:{...profileAccount(req.session.user.id),name:String(req.body.name||'').slice(0,120),username:String(req.body.username||'').slice(0,30),phone:String(req.body.phone||'').slice(0,40),username:String(req.body.username||'').trim().slice(0,30)},saved:false,error:message}); }
+function passwordError(req,res,message,code=400){const rows=db.prepare('SELECT sid,device,browser,os,created_at,last_active FROM app_sessions WHERE user_id=? AND expires_at>? ORDER BY last_active DESC').all(req.session.user.id,Date.now()).map(r=>({...r,current:r.sid===req.sessionID}));return res.status(code).render('common/devices',{rows,passwordChanged:false,error:message});}
 router.get('/notifications',requireAuth,(req,res)=>{ const rows=db.prepare('SELECT * FROM notifications WHERE user_id=? ORDER BY id DESC LIMIT 100').all(req.session.user.id); res.render('common/notifications',{rows}); });
 router.post('/notifications/:id/read',requireAuth,(req,res)=>{ db.prepare('UPDATE notifications SET is_read=1 WHERE id=? AND user_id=?').run(req.params.id,req.session.user.id); res.redirect(String(req.body.return_to||'').startsWith('/notifications')?req.body.return_to:'/notifications'); });
-router.get('/profile',requireAuth,(req,res)=>{ const u=db.prepare('SELECT id,name,email,phone,role,status,verification_status,created_at FROM users WHERE id=?').get(req.session.user.id); res.render('common/profile',{account:u,saved:req.query.saved==='1'}); });
-router.post('/profile',requireAuth,(req,res)=>{ const name=String(req.body.name||'').trim().slice(0,120),phone=String(req.body.phone||'').trim().slice(0,40); if(name.length<2)return res.status(400).send('Name too short'); db.prepare('UPDATE users SET name=?,phone=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(name,phone,req.session.user.id); req.session.user.name=name; res.redirect('/profile?saved=1'); });
+router.get('/profile',requireAuth,(req,res)=>{ const u=profileAccount(req.session.user.id); res.render('common/profile',{account:u,saved:req.query.saved==='1',error:null}); });
+router.post('/profile',requireAuth,(req,res)=>{
+ const name=String(req.body.name||'').trim().slice(0,120),phone=String(req.body.phone||'').trim().slice(0,40),username=String(req.body.username||'').trim().toLowerCase();
+ if(name.length<2)return profileError(req,res,'Your display name must have at least two characters.');
+ if(username&&!/^[a-z][a-z0-9._-]{2,29}$/.test(username))return profileError(req,res,'Username must start with a letter, be 3–30 characters, and contain only letters, numbers, dots, underscores or hyphens.');
+ if(username&&db.prepare('SELECT id FROM users WHERE (username=? OR email=?) AND id<>?').get(username,username,req.session.user.id))return profileError(req,res,'That username is already in use. Choose another.');
+ try{db.prepare('UPDATE users SET name=?,username=?,phone=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(name,username||null,phone,req.session.user.id);}
+ catch(e){if(e.code?.startsWith('SQLITE_CONSTRAINT'))return profileError(req,res,'That username is already in use. Choose another.');throw e;}
+ req.session.user.name=name;audit(req,'PROFILE_UPDATED','user',req.session.user.id,{usernameChanged:true});res.redirect('/profile?saved=1');
+});
 router.get('/account/devices',requireAuth,(req,res)=>{
  const rows=db.prepare('SELECT sid,device,browser,os,created_at,last_active FROM app_sessions WHERE user_id=? AND expires_at>? ORDER BY last_active DESC').all(req.session.user.id,Date.now()).map(r=>({...r,current:r.sid===req.sessionID}));
- res.render('common/devices',{rows,passwordChanged:req.query.password==='changed'});
+ res.render('common/devices',{rows,passwordChanged:req.query.password==='changed',error:null});
 });
 router.post('/account/devices/:sid/revoke',requireAuth,(req,res)=>{
  const sid=String(req.params.sid);
@@ -26,8 +37,9 @@ router.post('/account/devices/revoke-others',requireAuth,(req,res)=>{
 router.post('/account/password',requireAuth,async(req,res)=>{
  const old=String(req.body.old_password||''),next=String(req.body.new_password||'');
  const me=db.prepare('SELECT password FROM users WHERE id=?').get(req.session.user.id);
- if(!me||!(await bcrypt.compare(old,me.password)))return res.status(400).send('Current password is incorrect.');
- if(next.length<12||next.length>200||next===old)return res.status(400).send('New password must have 12+ characters and differ from the old password.');
+ if(!me||!(await bcrypt.compare(old,me.password)))return passwordError(req,res,'Current password is incorrect.');
+ if(next.length<12||next.length>200||next===old)return passwordError(req,res,'New password must be 12–200 characters and differ from the current password.');
+ if(next!==String(req.body.confirm_password||''))return passwordError(req,res,'The new passwords do not match.');
  const hash=await bcrypt.hash(next,12);
  db.prepare('UPDATE users SET password=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(hash,req.session.user.id);
  revokeOtherSessions(req.session.user.id,req.sessionID);
@@ -40,7 +52,7 @@ router.get('/support',requireAuth,(req,res)=>{
 });
 router.post('/support',requireAuth,(req,res)=>{
  const category=String(req.body.category||'other'),subject=String(req.body.subject||'').trim().slice(0,150),message=String(req.body.message||'').trim().slice(0,3000);
- if(!['account','pickup','payment','collector','partner','technical','other'].includes(category)||!subject||!message)return res.status(400).send('Provide category, subject and message.');
+ if(!['account','pickup','payment','collector','partner','technical','other'].includes(category)||!subject||!message){const rows=db.prepare('SELECT id,subject,category,message,status,escalated,created_at FROM support_requests WHERE user_id=? ORDER BY id DESC LIMIT 100').all(req.session.user.id);return res.status(400).render('common/support',{rows,error:'Please provide a category, subject and message.'});}
  const id=db.prepare('INSERT INTO support_requests(user_id,subject,category,message,status) VALUES(?,?,?,?,\'open\')').run(req.session.user.id,subject,category,message).lastInsertRowid;
  db.prepare("INSERT INTO support_events(ticket_id,user_id,status,notes) VALUES(?,?,'open','User submitted ticket')").run(id,req.session.user.id);
  audit(req,'support_ticket_created','support_request',id);res.redirect('/support');

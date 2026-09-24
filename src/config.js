@@ -6,6 +6,8 @@ const insecure = value => !value || /replace.with|change.me|example\.com|demo@|p
 if(isProduction && (insecure(process.env.SESSION_SECRET) || process.env.SESSION_SECRET.length < 48)) throw Error('Production requires a unique SESSION_SECRET of at least 48 characters.');
 if(isProduction && (insecure(process.env.OWNER_PASSWORD) || process.env.OWNER_PASSWORD.length < 14 || insecure(process.env.OWNER_EMAIL))) throw Error('Production requires genuine OWNER_EMAIL and a strong OWNER_PASSWORD (14+ characters).');
 
+if(isProduction && process.env.SMTP_HOST && !String(process.env.APP_BASE_URL||process.env.BASE_URL||'').startsWith('https://')) throw Error('Production reset emails require an HTTPS APP_BASE_URL.');
+
 module.exports = {
   appName: 'ReLoop',
   tagline: 'Recycle smarter. Keep materials in the loop.',
@@ -16,7 +18,8 @@ module.exports = {
   ownerEmail: String(process.env.OWNER_EMAIL || '').trim().toLowerCase(),
   ownerPassword: String(process.env.OWNER_PASSWORD || ''),
   ownerName: String(process.env.OWNER_NAME || 'ReLoop Owner').trim(),
-  baseUrl: process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`,
+  baseUrl: process.env.APP_BASE_URL || process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`,
+  smtp: {host: process.env.SMTP_HOST || '', port: Number(process.env.SMTP_PORT || 587), secure: process.env.SMTP_SECURE === 'true', user: process.env.SMTP_USER || '', pass: process.env.SMTP_PASSWORD || '', from: process.env.SMTP_FROM || ''},
   uploadLimitBytes: Number(process.env.UPLOAD_LIMIT_BYTES || 2 * 1024 * 1024),
   roles: ['owner', 'admin', 'collector', 'partner', 'customer'],
   pickupStatuses: ['pending','approved','assigned','accepted','en_route','arrived','collected','delivered','verified','completed','cancelled'],

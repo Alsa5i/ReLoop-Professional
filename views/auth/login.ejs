@@ -1,1 +1,33 @@
-<%- include('../partials/head',{title:'Sign in'}) %><div class="auth-shell"><div class="auth-brand-panel"><div class="auth-hero"><div class="brand-inline big">♻ <strong>ReLoop</strong></div><h1>Recycling operations, connected.</h1><p>Sign in to your customer, collector, partner or admin workspace.</p><a href="/" class="text-link">← Back to website</a></div></div><div class="auth-card-wrap"><form class="auth-card" method="post" action="/login"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><span class="eyebrow">Secure access</span><h2>Welcome back</h2><p class="muted">Owner accounts use the separate Owner portal.</p><% if(error){ %><div class="alert danger"><%= error %></div><% } %><label>Email<input type="email" name="email" autocomplete="email" required></label><label>Password<input type="password" name="password" autocomplete="current-password" required></label><button class="btn primary wide">Sign in</button><div class="auth-links"><a href="/register">Create customer account</a><a href="/owner/login">Owner login</a></div></form></div></div><script src="/js/app.js"></script></body></html>
+<%- include('../partials/head',{title:'Sign in to ReLoop'}) %>
+<a href="#loginForm" class="skip-link">Skip to sign in</a>
+<div class="access-layout">
+  <aside class="access-story" aria-label="About ReLoop">
+    <a href="/" class="access-wordmark" aria-label="ReLoop home"><span class="access-mark">♻</span><span>ReLoop<span class="brand-dot">.</span></span></a>
+    <div class="access-story-body"><span class="access-kicker">YOUR RECYCLING WORKSPACE</span><h1>One platform.<br>More materials<br><em>back in the loop.</em></h1><p>Request collections, manage your work and keep track of the impact you create — all from one account.</p>
+    <div class="access-benefits"><span><b>01</b> Request &amp; track pickups</span><span><b>02</b> Work with verified collectors</span><span><b>03</b> Connect with recycling partners</span></div></div>
+    <div class="access-story-foot">Built for customers, collectors, recycling partners and ReLoop staff.</div>
+  </aside>
+  <main class="access-main">
+    <div class="access-mobile-brand"><a href="/" class="access-wordmark"><span class="access-mark">♻</span> ReLoop<span class="brand-dot">.</span></a></div>
+    <div class="access-main-top"><a href="/" class="access-back">← Back to website</a><span>New to ReLoop? <a class="strong-link" href="/register<%= next==='pickup'?'?next=pickup':'' %>">Create account</a></span></div>
+    <div class="access-form-wrap"><span class="access-overline">WELCOME BACK</span><h2>Sign in to your account</h2><p class="access-description">Enter the email and password you used to create your ReLoop account. Your workspace opens automatically.</p>
+      <% if(resetDone){ %><div class="alert success" role="status">Password updated. Sign in with your new password.</div><% } %>
+      <% if(error){ %><div class="access-error" role="alert" id="loginError"><strong>Sign in unsuccessful</strong><p><%= error %></p></div><% } %>
+      <form method="post" action="/login" id="loginForm" class="access-form" data-auth-form>
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="next" value="<%= next||'' %>">
+        <label for="loginEmail">Email or username</label><input id="loginEmail" name="email" type="text" autocomplete="username" spellcheck="false" autocapitalize="none" inputmode="text" maxlength="200" value="<%= email||'' %>" placeholder="you@example.com or your username" aria-describedby="loginEmailHint" required autofocus>
+        <small id="loginEmailHint" class="access-field-hint">Works for every ReLoop role, including the platform owner.</small>
+        <div class="access-field-heading"><label for="loginPassword">Password</label><a href="/forgot-password" class="access-inline-link">Forgot password?</a></div>
+        <div class="access-password"><input id="loginPassword" name="password" type="password" autocomplete="current-password" spellcheck="false" autocapitalize="off" required placeholder="Enter your password"><button type="button" class="access-show" data-password-toggle="loginPassword" aria-controls="loginPassword" aria-pressed="false">Show</button></div>
+        <label class="remember-email"><input type="checkbox" name="remember_email" value="1" data-remember-email> Remember my login on this device <small>(never the password)</small></label>
+        <p class="access-field-hint">Your login and unfinished non-password fields are restored after reloading this tab. Passwords are handled by your browser’s password manager.</p>
+        <button class="access-submit" type="submit"><span>Sign in</span><span aria-hidden="true">→</span></button>
+      </form>
+      <div class="access-separator"><span>NEW TO RELOOP?</span></div>
+      <a class="access-secondary" href="/register<%= next==='pickup'?'?next=pickup':'' %>">Create your account <span aria-hidden="true">↗</span></a>
+      <p class="access-assist">Applying as a collector or recycling partner? <a href="/register?role=collector">Collector</a> · <a href="/register?role=partner">Partner</a></p>
+    </div>
+    <footer class="access-footer"><span>© ReLoop · A safer recycling network</span><span><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/contact">Contact</a> · <a href="/install">Install app</a></span></footer>
+  </main>
+</div>
+<script src="/js/app.js"></script><script src="/js/enhancements.js"></script></body></html>

@@ -12,8 +12,7 @@ npm-debug.log*
 .env.*
 !.env.example
 node_modules/
-*.db
-*.db-*
+*.db*
 *.sqlite*
 uploads/
 backups/

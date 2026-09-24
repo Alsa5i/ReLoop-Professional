@@ -1,4 +1,66 @@
-# ReLoop Professional Final v3.0.0
+# ReLoop Professional — Version 1.0.1
+
+# ReLoop Professional — Version 1.0.1
+
+## Changes since 1.0.0
+
+- Protected authenticated POST create/update actions use asynchronous `fetch` with CSRF and same-origin cookies, followed by an in-place dashboard content refresh; no full document reload in typical operations. Navigation, authentication, logout and backup downloads still navigate normally when necessary.
+- Validation and server action errors appear **inside the form** rather than taking users to standalone plaintext error pages while JavaScript is active. Disabled-JavaScript fallback uses the original server response.
+- Form values are preserved for the current browser tab via `sessionStorage`, scoped to user/page/form, excluding passwords, CSRF tokens, upload content and payment/verification secrets. Logout clears account drafts.
+- Unified login restores email/username after reload, with explicit opt-in for longer-lived local email/username recall. Password is never persisted by ReLoop JavaScript; browser password manager may remember it by the user's choice.
+- Added unique, editable **username** alongside display name on every role's profile; login accepts email or username. Username is optional and case-normalized. A database unique index prevents duplicates.
+- Registration requires a 12+ character password and matching confirmation. Changing password requires the correct current password, a different 12+ character replacement and matching confirmation; other device sessions are revoked.
+- Owner may update display name/username/password without having the original `.env` provisioning password reset the new UI password on every restart. A changed `OWNER_PASSWORD` still performs a controlled rotation when its provision fingerprint changes.
+- Updated PWA static-cache version and expanded route-contract tests.
+
+**Not claimed:** full Express/browser/mobile end-to-end verification or a live payment provider integration. See `TEST_REPORT_1.0.1.md`.
+
+## Base project documentation
+
+# ReLoop Professional — Version 1.0.1
+
+# ReLoop Professional — Version 1.0.1
+
+## Changes since 1.0.0
+
+- Protected authenticated POST create/update actions use asynchronous `fetch` with CSRF and same-origin cookies, followed by an in-place dashboard content refresh; no full document reload in typical operations. Navigation, authentication, logout and backup downloads still navigate normally when necessary.
+- Validation and server action errors appear **inside the form** rather than taking users to standalone plaintext error pages while JavaScript is active. Disabled-JavaScript fallback uses the original server response.
+- Form values are preserved for the current browser tab via `sessionStorage`, scoped to user/page/form, excluding passwords, CSRF tokens, upload content and payment/verification secrets. Logout clears account drafts.
+- Unified login restores email/username after reload, with explicit opt-in for longer-lived local email/username recall. Password is never persisted by ReLoop JavaScript; browser password manager may remember it by the user's choice.
+- Added unique, editable **username** alongside display name on every role's profile; login accepts email or username. Username is optional and case-normalized. A database unique index prevents duplicates.
+- Registration requires a 12+ character password and matching confirmation. Changing password requires the correct current password, a different 12+ character replacement and matching confirmation; other device sessions are revoked.
+- Owner may update display name/username/password without having the original `.env` provisioning password reset the new UI password on every restart. A changed `OWNER_PASSWORD` still performs a controlled rotation when its provision fingerprint changes.
+- Updated PWA static-cache version and expanded route-contract tests.
+
+**Not claimed:** full Express/browser/mobile end-to-end verification or a live payment provider integration. See `TEST_REPORT_1.0.1.md`.
+
+## Base project documentation
+
+# ReLoop Professional 1.0.1
+
+This package updates version 1.0.0. **Start with [FIXES_1.0.1.md](FIXES_1.0.1.md)** for changes, safe draft storage and operational verification requirements.
+
+# ReLoop Professional — Version 1.0.0
+
+**Official final release package requested for the centralized ReLoop platform.** This builds on all v3.2 work and is not a multi-tenant SaaS conversion. New in this release: **install ReLoop on Android/iPhone via `/install`** and optional real SMTP password recovery (not fake email delivery). See [`RELEASE_NOTES_1.0.0.md`](RELEASE_NOTES_1.0.0.md), [`PWA_INSTALLATION.md`](PWA_INSTALLATION.md) and [`TEST_REPORT.md`](TEST_REPORT.md).
+
+Quick start: `cp .env.example .env` → configure your unique Owner/session credentials → `npm install` → `npm run test:release` → `npm start`. Use a persistent SQLite volume, HTTPS and remote backups for real hosting. Public Owner registration is disabled; `/login` is shared by all roles.
+
+**Recovery:** `/forgot-password` and `/reset-password/:token` send actual email only after `SMTP_HOST`, `SMTP_FROM` and an approved SMTP configuration are present; otherwise users are told to contact Support. A reset invalidates other active sessions. The Owner rotates credentials through `OWNER_PASSWORD` in the server environment.
+
+**PWA:** `/install` explains Android's install prompt/browser menu and iPhone's Share → Add to Home Screen. The app does not claim to collect or update materials while offline. Installation is not equivalent to a native Play Store/APK download.
+
+---
+
+## v3.2 — Unified sign-in and account creation
+
+All five roles (Owner, Admin, Collector, Partner, Customer) now sign in from **`/login`**. Owner and Admin accounts cannot be created through public registration. Existing `/owner/login` bookmarks redirect to `/login`; old POST forms continue to authenticate through the unified handler. The Owner retains the stricter five-attempt rate limit, two-session cap and Owner-only routes.
+
+At **`/register`**, visitors select Customer, Business Customer, Collector or Partner. Customers are signed in and sent to `/customer` or `/customer/pickups/new` (when coming from Request Pickup); business customers go to `/customer/business`. Collector and Partner applicants are signed in to their role dashboards, with manual verification required before sensitive work is enabled. Duplicate-email errors link to sign-in, without re-displaying passwords. Password recovery now uses optional real SMTP delivery and single-use expiring reset tokens; without SMTP it directs users to Support rather than claiming email was sent.
+
+> **Historical v3.1.0 notes below.** The current public release name is Version 1.0.0; see the release notes above.
+
+# Previous release documentation: ReLoop Professional v3.0.0
 
 ReLoop is **one centralized recycling and circular-economy marketplace and operations platform** operated by the ReLoop Owner. It connects customers/waste producers, collectors, recycling partners/facilities, ReLoop Admins and the Platform Owner.
 
@@ -18,7 +80,7 @@ ReLoop is **not** a multi-tenant SaaS product. Business customers and recycling 
 
 | Role | Purpose | Main entry |
 |---|---|---|
-| Owner / Super Admin | Full platform control, Admin management, financial/settings/security oversight | `/owner/login` → `/owner` |
+| Owner / Super Admin | Full platform control, Admin management, financial/settings/security oversight | `/login` → `/owner` |
 | Admin | Daily operational administration, verifications, pickups, payments, disputes and support | `/login` → `/admin` |
 | Collector | Mobile-first collection workflow, proof, weights, availability and earnings | `/login` → `/collector` |
 | Partner | Incoming material/delivery workspace, batches and transaction history | `/login` → `/partner` |

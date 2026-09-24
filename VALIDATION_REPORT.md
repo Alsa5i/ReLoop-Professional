@@ -12,7 +12,7 @@
 
 ## Security/business invariants reviewed
 
-- Owner is distinct from Admin and uses `/owner/login`.
+- Owner is distinct from Admin; both sign in at `/login`, while Owner remains separately authorized.
 - Owner credentials come from environment variables.
 - Original `@demo.local` accounts are suspended during migration.
 - Suspended users are blocked even if they still have an old active session.

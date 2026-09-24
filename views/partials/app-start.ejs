@@ -1,1 +1,6 @@
-<%- include('head',{title}) %><div class="app-layout"><%- include('app-sidebar',{page}) %><div class="app-content"><%- include('app-topbar',{heading,subheading}) %><main class="app-main">
+<%- include('head',{title}) %>
+<a href="#mainContent" class="skip-link">Skip to main content</a><div class="sidebar-backdrop" data-sidebar-close aria-hidden="true"></div>
+<div class="app-layout" data-role="<%= user.role %>" data-user="<%= user.id %>"><%- include('app-sidebar',{page}) %><div class="app-content"><%- include('app-topbar',{heading,subheading}) %>
+<main class="app-main" id="mainContent" tabindex="-1">
+<div class="page-intro"><div><span class="page-overline"><%= user.role==='owner'?'PLATFORM CONTROL':user.role==='admin'?'OPERATIONS':user.role==='customer'?'YOUR RECYCLING':user.role==='collector'?'FIELD WORKSPACE':'PARTNER WORKSPACE' %></span><h1><%= typeof heading!=='undefined'?heading:'ReLoop' %></h1><% if(typeof subheading!=='undefined'&&subheading){ %><p><%= subheading %></p><% } %></div><div class="intro-accent" aria-hidden="true"><svg class="ui-icon"><use href="/icons/ui.svg#recycle"></use></svg></div></div>
+<% if(typeof flash!=='undefined'&&flash){ %><div role="status" class="alert success flash-message" data-flash><svg class="ui-icon" aria-hidden="true"><use href="/icons/ui.svg#check"></use></svg><span><%= flash %></span><button type="button" data-dismiss-alert aria-label="Dismiss notification">×</button></div><% } %>

@@ -1,1 +1,16 @@
-<header class="app-topbar"><button class="menu-toggle" type="button" onclick="document.getElementById('appSidebar').classList.toggle('open')">☰</button><div><strong><%= typeof heading!=='undefined'?heading:'ReLoop' %></strong><small><%= typeof subheading!=='undefined'?subheading:'' %></small></div><div class="topbar-user"><a href="/notifications" aria-label="Notifications">🔔<% if(unreadNotifications){ %><span class="notif-dot"><%= unreadNotifications %></span><% } %></a><span class="avatar"><%= user.name.charAt(0).toUpperCase() %></span><div><b><%= user.name %></b><small><%= user.role %></small></div></div></header>
+<%
+ const mainRoute='/'+user.role;
+ const shortcut=user.role==='customer'?'/customer/pickups/new':user.role==='owner'||user.role==='admin'?'/admin/pickups':user.role==='collector'?'/collector':'/partner';
+ const shortcutLabel=user.role==='customer'?'New pickup':user.role==='owner'||user.role==='admin'?'Manage pickups':user.role==='collector'?'View jobs':'View deliveries';
+%>
+<header class="app-topbar">
+ <div class="topbar-left"><button class="icon-button mobile-menu" type="button" data-sidebar-open aria-label="Open navigation" aria-controls="appSidebar" aria-expanded="false"><svg class="ui-icon"><use href="/icons/ui.svg#menu"></use></svg></button>
+ <button class="icon-button desktop-collapse" type="button" data-sidebar-collapse aria-label="Collapse sidebar" title="Collapse sidebar"><svg class="ui-icon"><use href="/icons/ui.svg#menu"></use></svg></button>
+ <div class="topbar-titles"><div class="breadcrumbs"><a href="<%= mainRoute %>"><%= user.role==='owner'?'Owner':user.role==='admin'?'Operations':user.role.charAt(0).toUpperCase()+user.role.slice(1) %></a><span aria-hidden="true">/</span><span aria-current="page"><%= typeof heading!=='undefined'?heading:'Dashboard' %></span></div><strong><%= typeof heading!=='undefined'?heading:'ReLoop workspace' %></strong></div></div>
+ <div class="topbar-actions"><button class="quick-search-trigger" type="button" data-open-search aria-label="Search pages" title="Find a page (Ctrl+K)"><svg class="ui-icon" aria-hidden="true"><use href="/icons/ui.svg#search"></use></svg><span>Find a page</span><kbd>⌘ K</kbd></button>
+ <a class="btn primary topbar-shortcut" href="<%= shortcut %>"><svg class="ui-icon" aria-hidden="true"><use href="/icons/ui.svg#<%= user.role==='customer'?'plus':'arrow-right' %>"></use></svg><span><%= shortcutLabel %></span></a>
+ <a class="icon-button install-topbar-link" href="/install" title="Install ReLoop on your phone" aria-label="Install ReLoop on your phone">↓</a>
+ <a class="icon-button alert-link" href="/notifications" aria-label="Notifications<%= unreadNotifications?' ('+unreadNotifications+' unread)':'' %>"><svg class="ui-icon"><use href="/icons/ui.svg#bell"></use></svg><% if(unreadNotifications){ %><span class="notif-dot"><%= unreadNotifications %></span><% } %></a>
+ <details class="user-dropdown"><summary aria-label="Account menu"><span class="avatar"><%= user.name.charAt(0).toUpperCase() %></span><span class="topbar-user-label"><b><%= user.name %></b><small><%= user.role %></small></span><svg class="ui-icon chevron"><use href="/icons/ui.svg#chevron-down"></use></svg></summary><div class="user-dropdown-menu"><a href="/profile">My profile</a><a href="/account/devices">Devices & security</a><a href="/support">Get support</a><form method="post" action="/logout"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button>Sign out</button></form></div></details>
+ </div>
+</header>

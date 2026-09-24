@@ -1,6 +1,6 @@
 {
   "name": "reloop-recycling",
-  "version": "3.0.0",
+  "version": "1.0.1",
   "private": true,
   "engines": {
     "node": ">=20.12"
@@ -9,11 +9,17 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "check": "node --check server.js && find src scripts -name '*.js' -print0 | xargs -0 -n1 node --check",
+    "check": "node --check server.js && find src scripts -name '*.js' -print0 | xargs -0 -n1 node --check && node --check public/js/app.js && node --check public/js/enhancements.js",
     "backup": "node scripts/backup.js",
     "test:static": "node tests/static-validation.js",
+    "test:navigation": "python3 tests/navigation-audit.py",
     "test:schema": "python3 tests/schema-smoke.py",
-    "pickups:generate": "node scripts/generate-recurring.js"
+    "pickups:generate": "node scripts/generate-recurring.js",
+    "test:auth": "node tests/auth-flow-contract.js",
+    "test:ux": "node tests/ux-flow-contract.js",
+    "test:pwa": "node tests/pwa-contract.js",
+    "test:account": "node tests/account-contract.js",
+    "test:release": "npm run check && npm run test:static && npm run test:schema && npm run test:navigation && npm run test:auth && npm run test:pwa && npm run test:account && npm run test:ux"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -21,6 +27,7 @@
     "ejs": "^3.1.10",
     "express": "^4.21.2",
     "express-session": "^1.18.1",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "nodemailer": "^7.0.0"
   }
 }
